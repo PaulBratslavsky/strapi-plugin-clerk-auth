@@ -2,7 +2,18 @@
 
 A Strapi v5 plugin that replaces Strapi's built-in JWT authentication with [Clerk](https://clerk.com). Clerk handles sign-in/sign-up on the client; this plugin verifies Clerk JWTs on the Strapi side, auto-creates users in the `users-permissions` table, and protects user routes with ownership checks.
 
-## How it works
+## How authentication works
+
+In a traditional Strapi setup, Strapi is both the **auth provider** and the **backend** — it issues JWTs via `/api/auth/local` and verifies them on subsequent requests. This plugin changes that:
+
+- **Clerk is the auth provider.** Sign-in/sign-up happens entirely between the client app and Clerk's servers. Clerk issues the JWT. Strapi is never involved in the sign-in flow.
+- **Strapi is the backend only.** It receives the Clerk JWT in the `Authorization` header, verifies it using the Clerk secret key, and maps it to a `users-permissions` user.
+- **Strapi's built-in JWT auth is disabled** on protected routes (`config.auth = false`). Without this, Strapi would reject the Clerk JWT before the plugin middleware runs.
+
+This means:
+- A user can be **signed in** (valid Clerk session) even if Strapi is down. The client app should handle API errors gracefully (e.g. show a retry screen).
+- **Strapi roles and permissions still work.** The middleware sets `ctx.state.user` to a real `users-permissions` user, so everything downstream (roles, policies, content ownership) behaves normally.
+- **No Strapi JWT is ever issued.** The Clerk JWT is the only token in the system.
 
 ```mermaid
 sequenceDiagram
@@ -11,9 +22,10 @@ sequenceDiagram
     participant Strapi as Strapi API
     participant DB as Strapi DB
 
-    Note over App,Clerk: 1. Authentication (client-side)
+    Note over App,Clerk: 1. Authentication (Clerk — independent of Strapi)
     App->>Clerk: Sign in / Sign up
     Clerk-->>App: Session + JWT
+    Note over App: User is now "signed in"<br/>Strapi is not involved yet
 
     Note over App,DB: 2. First API call (e.g. GET /api/users/me)
     App->>Strapi: Request with Bearer <Clerk JWT>

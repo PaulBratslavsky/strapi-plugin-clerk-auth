@@ -1,4 +1,5 @@
 import type { Core } from '@strapi/strapi';
+import type { ClerkAuthPluginConfig } from './config';
 
 function generateUsername(): string {
   const adjectives = ['Swift', 'Brave', 'Clever', 'Mighty', 'Silent', 'Witty', 'Bold', 'Eager'];
@@ -23,11 +24,7 @@ const bootstrap = ({ strapi }: { strapi: Core.Strapi }) => {
   }
 
   // If userProfileContentType is configured, subscribe to user lifecycle events
-  const pluginConfig = strapi.config.get('plugin::clerk-auth') as {
-    userProfileContentType?: string;
-  };
-
-  const profileContentType = pluginConfig.userProfileContentType;
+  const { userProfileContentType: profileContentType } = strapi.config.get<ClerkAuthPluginConfig>('plugin::clerk-auth');
 
   if (profileContentType) {
     strapi.db.lifecycles.subscribe({
